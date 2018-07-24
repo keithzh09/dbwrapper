@@ -239,7 +239,12 @@ func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (r
 	return
 }
 
-func (this *DBWrapper) Update(db *sqlx.DB, pkName string, m *map[string]interface{}) (result sql.Result, err error) {
+func (this *DBWrapper) Update(
+	db *sqlx.DB,
+	pkName string,
+	changes map[string]interface{},
+	where []string,
+) (result sql.Result, err error) {
 	if db == nil {
 		db, err = this.OpenDB()
 		if err != nil {
@@ -250,7 +255,7 @@ func (this *DBWrapper) Update(db *sqlx.DB, pkName string, m *map[string]interfac
 
 	updates := []string{}
 
-	for k := range *m {
+	for k := range changes {
 		if k == pkName {
 			continue
 		}
@@ -266,9 +271,9 @@ func (this *DBWrapper) Update(db *sqlx.DB, pkName string, m *map[string]interfac
 	)
 	if this.Debug {
 		log.Println("Sql", s)
-		log.Println(" Parameters", m)
+		log.Println(" Parameters", changes)
 	}
-	result, err = db.NamedExec(s, *m)
+	result, err = db.NamedExec(s, changes)
 	if err != nil {
 		if mysqlError, ok := err.(*mysql.MySQLError); ok {
 			if mysqlError.Number == 1062 {
