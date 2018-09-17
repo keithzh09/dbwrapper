@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -22,6 +23,8 @@ type DBWrapper struct {
 	Dsn       string
 	Debug     bool
 	TableName string
+
+	Columns []string
 }
 
 // NewDBWrapper setup DSN(data source name) and table, sub-class have to override this.
@@ -57,7 +60,7 @@ func (this *DBWrapper) MustOpenDB() (db *sqlx.DB) {
 
 // Get returns one record at most.
 // parameter `obj`` must be pass by `&MyObject{}`.`
-func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, fields []string, pkName string, pk interface{}) (err error) {
+func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkName string, pk interface{}) (err error) {
 	if db == nil {
 		db, err = this.OpenDB()
 		if err != nil {
@@ -66,13 +69,13 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, fields []string, pkName
 		defer db.Close()
 	}
 
-	var queryFields string
-	if len(fields) > 0 {
-		queryFields = strings.Join(fields, ",")
+	var columnsQuery string
+	if len(columns) > 0 {
+		columnsQuery = strings.Join(columns, ",")
 	} else {
-		queryFields = "*"
+		columnsQuery = "*"
 	}
-	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s=? LIMIT 1", queryFields, this.TableName, pkName)
+	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s=? LIMIT 1", columnsQuery, this.TableName, pkName)
 	if this.Debug {
 		log.Println("Sql", s)
 		log.Println(" Parameters", pk)
@@ -87,7 +90,7 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, fields []string, pkName
 
 func (this *DBWrapper) Gets(
 	db *sqlx.DB, objs interface{},
-	fields []string,
+	columns []string,
 	conditionsWhere *map[string]interface{},
 	limit int) (err error) {
 	if db == nil {
@@ -98,11 +101,11 @@ func (this *DBWrapper) Gets(
 		defer db.Close()
 	}
 
-	var queryFields string
-	if len(fields) > 0 {
-		queryFields = strings.Join(fields, ",")
+	var columnsQuery string
+	if len(columns) > 0 {
+		columnsQuery = strings.Join(columns, ",")
 	} else {
-		queryFields = "*"
+		columnsQuery = "*"
 	}
 
 	var k string
@@ -117,13 +120,13 @@ func (this *DBWrapper) Gets(
 	var s string
 	if len(wheres) > 0 {
 		s = fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
-			queryFields,
+			columnsQuery,
 			this.TableName,
 			strings.Join(wheres, " AND "),
 			limit)
 	} else {
 		s = fmt.Sprintf("SELECT %s FROM %s LIMIT %d",
-			queryFields,
+			columnsQuery,
 			this.TableName,
 			limit)
 
@@ -140,7 +143,7 @@ func (this *DBWrapper) Gets(
 
 func (this *DBWrapper) Search(
 	db *sqlx.DB, objs interface{},
-	fields []string,
+	columns []string,
 	conditionsWhere *map[string]interface{},
 	conditionsLike *map[string]interface{},
 	limit int) (err error) {
@@ -152,11 +155,11 @@ func (this *DBWrapper) Search(
 		defer db.Close()
 	}
 
-	var queryFields string
-	if len(fields) > 0 {
-		queryFields = strings.Join(fields, ",")
+	var columnsQuery string
+	if len(columns) > 0 {
+		columnsQuery = strings.Join(columns, ",")
 	} else {
-		queryFields = "*"
+		columnsQuery = "*"
 	}
 
 	var k string
@@ -183,7 +186,7 @@ func (this *DBWrapper) Search(
 	}
 
 	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
-		queryFields,
+		columnsQuery,
 		this.TableName,
 		strings.Join(wheres, " AND "),
 		limit)
@@ -349,5 +352,58 @@ func (this *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}
 		log.Println(" Parameters", m)
 	}
 	_, err = db.NamedExec(s, *m)
+	return
+}
+
+// GetColumns returns query columns from tag `db` in strutt.
+func (this *DBWrapper) GetColumns() []string {
+	te := reflect.TypeOf(this).Elem()
+	columns := []string{}
+	for i := 0; i < te.NumField(); i++ {
+		field := te.Field(i).Tag.Get("db")
+		if field != "" {
+			columns = append(columns, field)
+		}
+	}
+	return columns
+
+}
+
+// SearchFullText returns query records matched fulltext index.
+// This query required created index likes `alter table mytbl add FULLTEXT ft_search (idx_col_a, idx_col_b, ...) WITH PARSER ngram`.
+func (this *DBWrapper) SearchFullText(
+	db *sqlx.DB, objs interface{},
+	columns []string,
+	columnsSearch []string,
+	q string,
+	limit int) (err error) {
+	if db == nil {
+		db, err = this.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	if len(columns) == 0 {
+		columns = append(columns, "*")
+	}
+
+	args := []interface{}{}
+	args = append(args, q)
+	args = append(args, limit)
+
+	s := fmt.Sprintf("SELECT %s FROM %s WHERE MATCH (%s) AGAINST (?) LIMIT ?",
+		strings.Join(columns, ","),
+		this.TableName,
+		strings.Join(columnsSearch, ","),
+	)
+
+	if this.Debug {
+		log.Println("Sql", s)
+		log.Println(" Parameters", args)
+	}
+
+	err = db.Select(objs, s, args...)
 	return
 }
