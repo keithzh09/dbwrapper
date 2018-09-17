@@ -88,6 +88,25 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkNam
 
 }
 
+func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ...interface{}) (err error) {
+	if db == nil {
+		db, err = this.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	if this.Debug {
+		log.Println("Sql", s)
+		log.Println(" Parameters", args)
+	}
+
+	err = db.Select(objs, s, args...)
+	return
+
+}
+
 func (this *DBWrapper) Gets(
 	db *sqlx.DB, objs interface{},
 	columns []string,
