@@ -3,6 +3,8 @@ package dbwrapper
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -20,23 +23,23 @@ var (
 )
 
 type DBWrapper struct {
-	Dsn       string
-	Debug     bool
-	TableName string
-
-	Columns []string
+	DriverName string
+	Dsn        string
+	Debug      bool
+	TableName  string
 }
 
 // NewDBWrapper setup DSN(data source name) and table, sub-class have to override this.
 func NewDBWrapper() *DBWrapper {
 	w := new(DBWrapper)
+	w.DriverName = "mysql"
 	w.Dsn = "test:test@tcp(127.0.0.1:3306)/test?charset=utf8mb4,utf8&timeout=2s&writeTimeout=2s&readTimeout=2s&parseTime=true"
 	w.TableName = "test"
 	return w
 }
 
 func (this *DBWrapper) OpenDB() (db *sqlx.DB, err error) {
-	db, err = sqlx.Open("mysql", this.Dsn)
+	db, err = sqlx.Open(this.DriverName, this.Dsn)
 	if err != nil {
 		return
 	}
@@ -46,7 +49,7 @@ func (this *DBWrapper) OpenDB() (db *sqlx.DB, err error) {
 }
 
 func (this *DBWrapper) MustOpenDB() (db *sqlx.DB) {
-	db, err := sqlx.Open("mysql", this.Dsn)
+	db, err := sqlx.Open(this.DriverName, this.Dsn)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -193,9 +196,6 @@ func (this *DBWrapper) Search(
 		}
 	}
 
-	log.Println("conditionsWhere", conditionsWhere)
-	log.Println("conditionsLike", conditionsLike)
-
 	if conditionsLike != nil {
 		for k = range *conditionsLike {
 			wheres = append(wheres, fmt.Sprintf("%s LIKE ?", k))
@@ -213,6 +213,8 @@ func (this *DBWrapper) Search(
 	if this.Debug {
 		log.Println("Sql", s)
 		log.Println(" Parameters", args)
+		log.Println(" where", conditionsWhere)
+		log.Println(" like", conditionsLike)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -425,4 +427,33 @@ func (this *DBWrapper) SearchFullText(
 
 	err = db.Select(objs, s, args...)
 	return
+}
+
+// JSONB maps PostgreSQL JSONB type into `map` in Go.
+// See also http://coussej.github.io/2016/02/16/Handling-JSONB-in-Go-Structs/
+type JSONB map[string]interface{}
+
+func (p JSONB) Value() (driver.Value, error) {
+	j, err := json.Marshal(p)
+	return j, err
+}
+
+func (p *JSONB) Scan(src interface{}) error {
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("Type assertion .([]byte) failed.")
+	}
+
+	var i interface{}
+	err := json.Unmarshal(source, &i)
+	if err != nil {
+		return err
+	}
+
+	*p, ok = i.(map[string]interface{})
+	if !ok {
+		return errors.New("Type assertion .(map[string]interface{}) failed.")
+	}
+
+	return nil
 }
