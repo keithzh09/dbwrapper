@@ -27,6 +27,7 @@ type DBWrapper struct {
 	Dsn        string
 	Debug      bool
 	TableName  string
+	Columms    []string
 }
 
 // NewDBWrapper setup DSN(data source name) and table, sub-class have to override this.
@@ -442,6 +443,11 @@ func (p *JSONB) Scan(src interface{}) error {
 	source, ok := src.([]byte)
 	if !ok {
 		return errors.New("Type assertion .([]byte) failed.")
+	}
+
+	// walk around issue `NULL`
+	if len(source) == 4 && string(source) == "null" {
+		return nil
 	}
 
 	var i interface{}
