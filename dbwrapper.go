@@ -10,6 +10,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -92,6 +93,7 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkNam
 
 }
 
+// RawQuery custom SQL
 func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ...interface{}) (err error) {
 	if db == nil {
 		db, err = this.OpenDB()
@@ -164,6 +166,7 @@ func (this *DBWrapper) Gets(
 	return
 }
 
+// Search query records with where EQUAL(=) and LIKE conditions, MySQL *ONLY*.
 func (this *DBWrapper) Search(
 	db *sqlx.DB, objs interface{},
 	columns []string,
@@ -222,6 +225,7 @@ func (this *DBWrapper) Search(
 	return
 }
 
+// CreateOrUpdate insert record or update record(s)
 func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
 	if db == nil {
 		db, err = this.OpenDB()
@@ -309,6 +313,7 @@ func (this *DBWrapper) Update(
 	return
 }
 
+// Create insert one record
 func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
 	if db == nil {
 		db, err = this.OpenDB()
@@ -352,6 +357,101 @@ func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sq
 	return
 }
 
+// Creates insert records in bulk
+func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (result sql.Result, err error) {
+	if db == nil {
+		db, err = this.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	createKeys := []string{}
+	recordsPlaceholder := []string{}
+	args := []interface{}{}
+
+	itemMap := (*items)[0]
+	for k := range itemMap {
+		createKeys = append(createKeys, k)
+	}
+	totalKeys := len(itemMap)
+
+	i := 1
+	for _, itemMap := range *items {
+		if len(itemMap) != totalKeys {
+			err = errors.New("count of keys must be equal in bulk insert")
+			return
+		}
+		placeholders := []string{}
+
+		for _, k := range createKeys {
+			v := itemMap[k]
+
+			switch v.(type) {
+			case map[string]interface{}:
+				{
+
+					var j JSONB
+					for key, value := range v.(map[string]interface{}) {
+						j[key] = value
+					}
+
+					args = append(args, j)
+				}
+			default:
+				{
+					args = append(args, v)
+				}
+			}
+
+			if this.DriverName == "mysql" {
+				placeholders = append(placeholders, "?")
+			} else if this.DriverName == "postgres" {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", i))
+			} else {
+				err = errors.New("got unsupport driver " + this.DriverName)
+				return
+			}
+
+			i++
+		}
+
+		l := fmt.Sprintf("(%s)", strings.Join(placeholders, ","))
+		recordsPlaceholder = append(recordsPlaceholder, l)
+	}
+
+	s := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
+		this.TableName,
+		strings.Join(createKeys, ","),
+		strings.Join(recordsPlaceholder, ","),
+	)
+
+	if this.Debug {
+		log.Println("Sql", s)
+		log.Println(" Parameters", args)
+	}
+
+	ts := time.Now()
+	result, err = db.Exec(s, args...)
+	if this.Debug {
+		log.Println(fmt.Sprintf("Writes %d records in %v", len(*items), time.Since(ts)))
+	}
+
+	if err != nil {
+		if errMysql, ok := err.(*mysql.MySQLError); ok {
+			// duplicated record
+			if errMysql.Number == 1062 {
+				err = ErrDuplicatedUniqueKey
+				return
+			}
+		}
+	}
+
+	return
+}
+
+// Del delete record(s)
 func (this *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}) (err error) {
 	if db == nil {
 		db, err = this.OpenDB()
@@ -393,6 +493,7 @@ func (this *DBWrapper) GetColumns() []string {
 
 // SearchFullText returns query records matched fulltext index.
 // This query required created index likes `alter table mytbl add FULLTEXT ft_search (idx_col_a, idx_col_b, ...) WITH PARSER ngram`.
+// MySQL *ONLY*.
 func (this *DBWrapper) SearchFullText(
 	db *sqlx.DB, objs interface{},
 	columns []string,
@@ -434,11 +535,13 @@ func (this *DBWrapper) SearchFullText(
 // See also http://coussej.github.io/2016/02/16/Handling-JSONB-in-Go-Structs/
 type JSONB map[string]interface{}
 
+// Value convert value from map[string]interface{} into []byte for PostgreSQL JSONB
 func (p JSONB) Value() (driver.Value, error) {
 	j, err := json.Marshal(p)
 	return j, err
 }
 
+// Scan convert value from PostgreSQL JSONB into map[string]interface{}
 func (p *JSONB) Scan(src interface{}) error {
 	source, ok := src.([]byte)
 	if !ok {
