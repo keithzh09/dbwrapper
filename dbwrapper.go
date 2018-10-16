@@ -28,7 +28,7 @@ type DBWrapper struct {
 	Dsn        string
 	Debug      bool
 	TableName  string
-	Columms    []string
+	Columns    []string
 }
 
 // NewDBWrapper setup DSN(data source name) and table, sub-class have to override this.
@@ -427,10 +427,13 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 		strings.Join(recordsPlaceholder, ","),
 	)
 
-	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
-	}
+	//
+	// Too many to write, just mute it.
+	//
+	//	if this.Debug {
+	//		log.Println("Sql", s)
+	//		log.Println(" Parameters", args)
+	//	}
 
 	ts := time.Now()
 	result, err = db.Exec(s, args...)
