@@ -113,6 +113,60 @@ func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ..
 
 }
 
+// GetsWhere query multiple records with where conditions.
+func (this *DBWrapper) GetsWhere(
+	db *sqlx.DB, objs interface{},
+	columns []string,
+	conditionsWhere []map[string]interface{},
+	limit int) (err error) {
+	if db == nil {
+		db, err = this.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	var columnsQuery string
+	if len(columns) > 0 {
+		columnsQuery = strings.Join(columns, ",")
+	} else {
+		columnsQuery = "*"
+	}
+
+	// make WHERE always works
+	wheres := []string{
+		"1 = 1",
+	}
+	args := []interface{}{}
+	for _, item := range conditionsWhere {
+		cond := fmt.Sprintf("%v %v ?",
+			item["key"],
+			item["op"],
+		)
+		wheres = append(wheres, cond)
+		args = append(args, item["value"])
+	}
+
+	var s string
+	s = fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
+		columnsQuery,
+		this.TableName,
+		strings.Join(wheres, " AND "),
+		limit)
+
+	if this.Debug {
+		log.Println("Sql", s)
+		log.Println(" Parameters", args)
+	}
+
+	err = db.Select(objs, s, args...)
+	return
+}
+
+// Gets query multiple records with where conditions(operator in condition alawys equals to =).
+// DEPRECATED.
+// See also GetsWhere.
 func (this *DBWrapper) Gets(
 	db *sqlx.DB, objs interface{},
 	columns []string,
@@ -268,6 +322,7 @@ func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (r
 	return
 }
 
+// Update update a record
 func (this *DBWrapper) Update(
 	db *sqlx.DB,
 	pkName string,
