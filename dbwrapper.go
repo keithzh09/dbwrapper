@@ -140,12 +140,22 @@ func (this *DBWrapper) GetsWhere(
 	}
 	args := []interface{}{}
 	for _, item := range conditionsWhere {
-		cond := fmt.Sprintf("%v %v ?",
-			item["key"],
-			item["op"],
-		)
-		wheres = append(wheres, cond)
-		args = append(args, item["value"])
+		// hard-coded fix pass `is/is not null` condition
+		v, ok := item["value"].(string)
+		if ok && v == "null" {
+			cond := fmt.Sprintf("%v %v null",
+				item["key"],
+				item["op"],
+			)
+			wheres = append(wheres, cond)
+		} else {
+			cond := fmt.Sprintf("%v %v ?",
+				item["key"],
+				item["op"],
+			)
+			wheres = append(wheres, cond)
+			args = append(args, item["value"])
+		}
 	}
 
 	var s string
