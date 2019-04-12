@@ -81,11 +81,12 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkNam
 		columnsQuery = "*"
 	}
 	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s=? LIMIT 1", columnsQuery, this.TableName, pkName)
+	var args []interface{}
+	args = append(args, pk)
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", pk)
+		log.Println("sql", s, args)
 	}
-	err = db.Get(obj, s, pk)
+	err = db.Get(obj, s, args...)
 	if err == sql.ErrNoRows {
 		err = ErrRecordNotFound
 	}
@@ -104,8 +105,7 @@ func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ..
 	}
 
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
+		log.Println("sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -166,8 +166,7 @@ func (this *DBWrapper) GetsWhere(
 		limit)
 
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
+		log.Println("sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -222,8 +221,7 @@ func (this *DBWrapper) Gets(
 	}
 
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
+		log.Println("sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -279,8 +277,7 @@ func (this *DBWrapper) Search(
 		limit)
 
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
+		log.Println("sql", s, args)
 		log.Println(" where", conditionsWhere)
 		log.Println(" like", conditionsLike)
 	}
@@ -317,8 +314,7 @@ func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (r
 		strings.Join(updates, ","),
 	)
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", m)
+		log.Println("sql", s, m)
 	}
 	result, err = db.NamedExec(s, *m)
 	if err != nil {
@@ -364,8 +360,7 @@ func (this *DBWrapper) Update(
 		pkName,
 	)
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", changes)
+		log.Println("sql", s, changes)
 	}
 	result, err = db.NamedExec(s, changes)
 	if err != nil {
@@ -405,8 +400,7 @@ func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sq
 		strings.Join(createValuesPlaceholder, ","),
 	)
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", m)
+		log.Println("sql", s, m)
 	}
 	result, err = db.NamedExec(s, *m)
 	if err != nil {
@@ -496,8 +490,8 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 	// Too many to write, just mute it.
 	//
 	//	if this.Debug {
-	//		log.Println("Sql", s)
-	//		log.Println(" Parameters", args)
+	//		log.Println("sql", s)
+	//		log.Println(" Args", args)
 	//	}
 
 	ts := time.Now()
@@ -538,8 +532,7 @@ func (this *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}
 
 	s := fmt.Sprintf("DELETE FROM %s WHERE %s LIMIT 1", this.TableName, strings.Join(conditions, " AND "))
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", m)
+		log.Println("sql", s, m)
 	}
 	_, err = db.NamedExec(s, *m)
 	return
@@ -591,8 +584,7 @@ func (this *DBWrapper) SearchFullText(
 	)
 
 	if this.Debug {
-		log.Println("Sql", s)
-		log.Println(" Parameters", args)
+		log.Println("sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
