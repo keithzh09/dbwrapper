@@ -31,7 +31,7 @@ type DBWrapper struct {
 	Columns    []string
 }
 
-// NewDBWrapper setup DSN(data source name) and table, sub-class have to override this.
+// NewDBWrapper setup DSN(data source name) and table, sub-class have to override its.
 func NewDBWrapper() *DBWrapper {
 	w := new(DBWrapper)
 	w.DriverName = "mysql"
@@ -40,8 +40,8 @@ func NewDBWrapper() *DBWrapper {
 	return w
 }
 
-func (this *DBWrapper) OpenDB() (db *sqlx.DB, err error) {
-	db, err = sqlx.Open(this.DriverName, this.Dsn)
+func (its *DBWrapper) OpenDB() (db *sqlx.DB, err error) {
+	db, err = sqlx.Open(its.DriverName, its.Dsn)
 	if err != nil {
 		return
 	}
@@ -50,24 +50,24 @@ func (this *DBWrapper) OpenDB() (db *sqlx.DB, err error) {
 	return
 }
 
-func (this *DBWrapper) MustOpenDB() (db *sqlx.DB) {
-	db, err := sqlx.Open(this.DriverName, this.Dsn)
+func (its *DBWrapper) MustOpenDB() (db *sqlx.DB) {
+	db, err := sqlx.Open(its.DriverName, its.Dsn)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("[fatal] sqlx.Open", its.DriverName, its.Dsn, err)
 	}
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("[fatal] db.Ping", err)
 	}
 	return
 }
 
 // Get returns one record at most.
 // parameter `obj`` must be pass by `&MyObject{}`.`
-func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkName string, pk interface{}) (err error) {
+func (its *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkName string, pk interface{}) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -80,11 +80,11 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkNam
 	} else {
 		columnsQuery = "*"
 	}
-	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s=? LIMIT 1", columnsQuery, this.TableName, pkName)
+	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s=? LIMIT 1", columnsQuery, its.TableName, pkName)
 	var args []interface{}
 	args = append(args, pk)
-	if this.Debug {
-		log.Println("sql", s, args)
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
 	}
 	err = db.Get(obj, s, args...)
 	if err == sql.ErrNoRows {
@@ -95,17 +95,17 @@ func (this *DBWrapper) Get(db *sqlx.DB, obj interface{}, columns []string, pkNam
 }
 
 // RawQuery custom SQL
-func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ...interface{}) (err error) {
+func (its *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ...interface{}) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
 		defer db.Close()
 	}
 
-	if this.Debug {
-		log.Println("sql", s, args)
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -114,13 +114,13 @@ func (this *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ..
 }
 
 // GetsWhere query multiple records with where conditions.
-func (this *DBWrapper) GetsWhere(
+func (its *DBWrapper) GetsWhere(
 	db *sqlx.DB, objs interface{},
 	columns []string,
 	conditionsWhere []map[string]interface{},
 	limit int) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -161,12 +161,12 @@ func (this *DBWrapper) GetsWhere(
 	var s string
 	s = fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
 		columnsQuery,
-		this.TableName,
+		its.TableName,
 		strings.Join(wheres, " AND "),
 		limit)
 
-	if this.Debug {
-		log.Println("sql", s, args)
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -176,13 +176,13 @@ func (this *DBWrapper) GetsWhere(
 // Gets query multiple records with where conditions(operator in condition alawys equals to =).
 // DEPRECATED.
 // See also GetsWhere.
-func (this *DBWrapper) Gets(
+func (its *DBWrapper) Gets(
 	db *sqlx.DB, objs interface{},
 	columns []string,
 	conditionsWhere *map[string]interface{},
 	limit int) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -209,19 +209,19 @@ func (this *DBWrapper) Gets(
 	if len(wheres) > 0 {
 		s = fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
 			columnsQuery,
-			this.TableName,
+			its.TableName,
 			strings.Join(wheres, " AND "),
 			limit)
 	} else {
 		s = fmt.Sprintf("SELECT %s FROM %s LIMIT %d",
 			columnsQuery,
-			this.TableName,
+			its.TableName,
 			limit)
 
 	}
 
-	if this.Debug {
-		log.Println("sql", s, args)
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -229,14 +229,14 @@ func (this *DBWrapper) Gets(
 }
 
 // Search query records with where EQUAL(=) and LIKE conditions, MySQL *ONLY*.
-func (this *DBWrapper) Search(
+func (its *DBWrapper) Search(
 	db *sqlx.DB, objs interface{},
 	columns []string,
 	conditionsWhere *map[string]interface{},
 	conditionsLike *map[string]interface{},
 	limit int) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -272,14 +272,12 @@ func (this *DBWrapper) Search(
 
 	s := fmt.Sprintf("SELECT %s FROM %s WHERE %s LIMIT %d",
 		columnsQuery,
-		this.TableName,
+		its.TableName,
 		strings.Join(wheres, " AND "),
 		limit)
 
-	if this.Debug {
-		log.Println("sql", s, args)
-		log.Println(" where", conditionsWhere)
-		log.Println(" like", conditionsLike)
+	if its.Debug {
+		log.Println("[debug] sql", s, args, conditionsWhere, conditionsLike)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -287,9 +285,9 @@ func (this *DBWrapper) Search(
 }
 
 // CreateOrUpdate insert record or update record(s)
-func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
+func (its *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -308,13 +306,13 @@ func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (r
 	}
 
 	s := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s",
-		this.TableName,
+		its.TableName,
 		strings.Join(createKeys, ","),
 		strings.Join(createValuesPlaceholder, ","),
 		strings.Join(updates, ","),
 	)
-	if this.Debug {
-		log.Println("sql", s, m)
+	if its.Debug {
+		log.Println("[debug] sql", s, m)
 	}
 	result, err = db.NamedExec(s, *m)
 	if err != nil {
@@ -329,14 +327,14 @@ func (this *DBWrapper) CreateOrUpdate(db *sqlx.DB, m *map[string]interface{}) (r
 }
 
 // Update update a record
-func (this *DBWrapper) Update(
+func (its *DBWrapper) Update(
 	db *sqlx.DB,
 	pkName string,
 	changes map[string]interface{},
 	where []string,
 ) (result sql.Result, err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -354,12 +352,12 @@ func (this *DBWrapper) Update(
 	}
 
 	s := fmt.Sprintf("UPDATE %s SET %s WHERE %s=:%s LIMIT 1",
-		this.TableName,
+		its.TableName,
 		strings.Join(updates, ","),
 		pkName,
 		pkName,
 	)
-	if this.Debug {
+	if its.Debug {
 		log.Println("sql", s, changes)
 	}
 	result, err = db.NamedExec(s, changes)
@@ -374,9 +372,9 @@ func (this *DBWrapper) Update(
 }
 
 // Create insert one record
-func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
+func (its *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sql.Result, err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -395,12 +393,12 @@ func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sq
 	}
 
 	s := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		this.TableName,
+		its.TableName,
 		strings.Join(createKeys, ","),
 		strings.Join(createValuesPlaceholder, ","),
 	)
-	if this.Debug {
-		log.Println("sql", s, m)
+	if its.Debug {
+		log.Println("[debug] sql", s, m)
 	}
 	result, err = db.NamedExec(s, *m)
 	if err != nil {
@@ -417,9 +415,9 @@ func (this *DBWrapper) Create(db *sqlx.DB, m *map[string]interface{}) (result sq
 }
 
 // Creates insert records in bulk
-func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (result sql.Result, err error) {
+func (its *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (result sql.Result, err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -464,12 +462,12 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 				}
 			}
 
-			if this.DriverName == "mysql" {
+			if its.DriverName == "mysql" {
 				placeholders = append(placeholders, "?")
-			} else if this.DriverName == "postgres" {
+			} else if its.DriverName == "postgres" {
 				placeholders = append(placeholders, fmt.Sprintf("$%d", i))
 			} else {
-				err = errors.New("got unsupport driver " + this.DriverName)
+				err = errors.New("got unsupport driver " + its.DriverName)
 				return
 			}
 
@@ -481,7 +479,7 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 	}
 
 	s := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
-		this.TableName,
+		its.TableName,
 		strings.Join(createKeys, ","),
 		strings.Join(recordsPlaceholder, ","),
 	)
@@ -489,15 +487,15 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 	//
 	// Too many to write, just mute it.
 	//
-	//	if this.Debug {
+	//	if its.Debug {
 	//		log.Println("sql", s)
 	//		log.Println(" Args", args)
 	//	}
 
 	ts := time.Now()
 	result, err = db.Exec(s, args...)
-	if this.Debug {
-		log.Println(fmt.Sprintf("Writes %d records in %v", len(*items), time.Since(ts)))
+	if its.Debug {
+		log.Println(fmt.Sprintf("[debug] Writes %d records in %v", len(*items), time.Since(ts)))
 	}
 
 	if err != nil {
@@ -514,9 +512,9 @@ func (this *DBWrapper) Creates(db *sqlx.DB, items *[]map[string]interface{}) (re
 }
 
 // Del delete record(s)
-func (this *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}) (err error) {
+func (its *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -530,17 +528,17 @@ func (this *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{}
 
 	}
 
-	s := fmt.Sprintf("DELETE FROM %s WHERE %s LIMIT 1", this.TableName, strings.Join(conditions, " AND "))
-	if this.Debug {
-		log.Println("sql", s, m)
+	s := fmt.Sprintf("DELETE FROM %s WHERE %s LIMIT 1", its.TableName, strings.Join(conditions, " AND "))
+	if its.Debug {
+		log.Println("[debug] sql", s, m)
 	}
 	_, err = db.NamedExec(s, *m)
 	return
 }
 
 // GetColumns returns query columns from tag `db` in strutt.
-func (this *DBWrapper) GetColumns() []string {
-	te := reflect.TypeOf(this).Elem()
+func (its *DBWrapper) GetColumns() []string {
+	te := reflect.TypeOf(its).Elem()
 	columns := []string{}
 	for i := 0; i < te.NumField(); i++ {
 		field := te.Field(i).Tag.Get("db")
@@ -555,14 +553,14 @@ func (this *DBWrapper) GetColumns() []string {
 // SearchFullText returns query records matched fulltext index.
 // This query required created index likes `alter table mytbl add FULLTEXT ft_search (idx_col_a, idx_col_b, ...) WITH PARSER ngram`.
 // MySQL *ONLY*.
-func (this *DBWrapper) SearchFullText(
+func (its *DBWrapper) SearchFullText(
 	db *sqlx.DB, objs interface{},
 	columns []string,
 	columnsSearch []string,
 	q string,
 	limit int) (err error) {
 	if db == nil {
-		db, err = this.OpenDB()
+		db, err = its.OpenDB()
 		if err != nil {
 			return
 		}
@@ -579,12 +577,12 @@ func (this *DBWrapper) SearchFullText(
 
 	s := fmt.Sprintf("SELECT %s FROM %s WHERE MATCH (%s) AGAINST (?) LIMIT ?",
 		strings.Join(columns, ","),
-		this.TableName,
+		its.TableName,
 		strings.Join(columnsSearch, ","),
 	)
 
-	if this.Debug {
-		log.Println("sql", s, args)
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
 	}
 
 	err = db.Select(objs, s, args...)
@@ -625,4 +623,76 @@ func (p *JSONB) Scan(src interface{}) error {
 	}
 
 	return nil
+}
+
+// UpdateWhere update multiple records with where conditions.
+func (its *DBWrapper) UpdateWhere(
+	db *sqlx.DB,
+	conditionsWhere []map[string]interface{},
+	updatesMap map[string]interface{},
+) (result sql.Result, err error) {
+	limit := 10000
+
+	if db == nil {
+		db, err = its.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	args := []interface{}{}
+
+	updates := []string{}
+	for key, value := range updatesMap {
+		update := fmt.Sprintf("%v=?", key)
+		args = append(args, value)
+		updates = append(updates, update)
+	}
+
+	// make WHERE always works
+	wheres := []string{
+		"1 = 1",
+	}
+
+	for _, item := range conditionsWhere {
+		// hard-coded fix pass `is/is not null` condition
+		v, ok := item["value"].(string)
+		if ok && v == "null" {
+			cond := fmt.Sprintf("%v %v null",
+				item["key"],
+				item["op"],
+			)
+			wheres = append(wheres, cond)
+		} else {
+			cond := fmt.Sprintf("%v %v ?",
+				item["key"],
+				item["op"],
+			)
+			wheres = append(wheres, cond)
+			args = append(args, item["value"])
+		}
+	}
+
+	var s string
+	s = fmt.Sprintf("UPDATE %s SET %s WHERE %s LIMIT %d",
+		its.TableName,
+		strings.Join(updates, ","),
+		strings.Join(wheres, " AND "),
+		limit)
+
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
+	}
+
+	result, err = db.Exec(s, args...)
+	if err != nil {
+		if mysqlError, ok := err.(*mysql.MySQLError); ok {
+			if mysqlError.Number == 1062 {
+				err = ErrDuplicatedUniqueKey
+			}
+		}
+	}
+
+	return
 }

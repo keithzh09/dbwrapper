@@ -1,6 +1,6 @@
 // Simple tests.
 // Setup database
-//   grant all privileges on `test`.* to  'test'@'%' identified by 'test';
+//   grant all privileges on `test`.* to  'test'@'127.0.0.1' identified by 'test';
 package dbwrapper
 
 import (
@@ -11,7 +11,7 @@ import (
 )
 
 var sqlCreateTest = `
-CREATE TABLE test (
+CREATE TABLE IF NOT EXISTS test_dbwrapper (
 	id int AUTO_INCREMENT,
 	mobileNo varchar(11),
 	password varchar(32),
@@ -21,12 +21,12 @@ CREATE TABLE test (
 	PRIMARY KEY (id)
 );
 `
-var sqlDropTest = `drop TABLE test`
+var sqlDropTest = `DROP TABLE test_dbwrapper`
 
 func tearDown(mgr *AccountProxy) {
 	db, err := mgr.OpenDB()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("[faltal] mgr.OpenDB", err)
 	}
 	defer db.Close()
 	_, err = db.Exec(sqlDropTest)
@@ -34,7 +34,7 @@ func tearDown(mgr *AccountProxy) {
 		if strings.Index(err.Error(), "Unknown table") != -1 {
 			// drop a table not exists, safe to skip
 		} else {
-			log.Fatalln(err)
+			log.Fatalln("[fatal] db.Exec", err)
 		}
 	}
 }
@@ -42,12 +42,12 @@ func tearDown(mgr *AccountProxy) {
 func setUp(mgr *AccountProxy) {
 	db, err := mgr.OpenDB()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("[faltal] mgr.OpenDB", err)
 	}
 	defer db.Close()
 	_, err = db.Exec(sqlCreateTest)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("[fatal] db.Exec", err)
 	}
 }
 
@@ -65,9 +65,10 @@ type AccountProxy struct {
 
 func NewAccountProxy() *AccountProxy {
 	p := AccountProxy{}
+	p.DriverName = "mysql"
 	p.Debug = true
 	p.Dsn = "test:test@tcp(127.0.0.1:3306)/test?charset=utf8mb4,utf8&timeout=2s&writeTimeout=2s&readTimeout=2s&parseTime=true"
-	p.TableName = "test"
+	p.TableName = "test_dbwrapper"
 	return &p
 }
 
