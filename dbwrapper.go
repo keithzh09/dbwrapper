@@ -23,6 +23,10 @@ var (
 	ErrDuplicatedUniqueKey = errors.New("duplicated unique key")
 )
 
+type DBW interface {
+	RawQuery(db *sqlx.DB, objs interface{}, s string, args ...interface{}) error
+}
+
 type DBWrapper struct {
 	DriverName string
 	Dsn        string
@@ -537,12 +541,12 @@ func (its *DBWrapper) Del(db *sqlx.DB, pkName string, m *map[string]interface{})
 }
 
 // GetColumns returns query columns from tag `db` in strutt.
-func (its *DBWrapper) GetColumns() []string {
-	te := reflect.TypeOf(its).Elem()
+func (its *DBWrapper) GetColumns(obj interface{}) []string {
+	te := reflect.TypeOf(obj).Elem()
 	columns := []string{}
 	for i := 0; i < te.NumField(); i++ {
 		field := te.Field(i).Tag.Get("db")
-		if field != "" {
+		if field != "" && field != "-" {
 			columns = append(columns, field)
 		}
 	}
