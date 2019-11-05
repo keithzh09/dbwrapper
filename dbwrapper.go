@@ -117,6 +117,31 @@ func (its *DBWrapper) RawQuery(db *sqlx.DB, objs interface{}, s string, args ...
 
 }
 
+// RawExec custom SQL
+func (its *DBWrapper) RawExec(db *sqlx.DB, s string, args ...interface{}) (result sql.Result, err error) {
+	if db == nil {
+		db, err = its.OpenDB()
+		if err != nil {
+			return
+		}
+		defer db.Close()
+	}
+
+	if its.Debug {
+		log.Println("[debug] sql", s, args)
+	}
+
+	result, err = db.Exec(s, args...)
+	if err != nil {
+		if mysqlError, ok := err.(*mysql.MySQLError); ok {
+			if mysqlError.Number == 1062 {
+				err = ErrDuplicatedUniqueKey
+			}
+		}
+	}
+	return
+}
+
 // GetsWhere query multiple records with where conditions.
 func (its *DBWrapper) GetsWhere(
 	db *sqlx.DB, objs interface{},
