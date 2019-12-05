@@ -360,7 +360,6 @@ func (its *DBWrapper) Update(
 	db *sqlx.DB,
 	pkName string,
 	changes map[string]interface{},
-	where []string,
 ) (result sql.Result, err error) {
 	if db == nil {
 		db, err = its.OpenDB()
